@@ -5,6 +5,9 @@ namespace SakerLabb.Web.Data;
 
 public class UserRepository
 {
+    private const string SelectColumns =
+        "SELECT Id, Username, PasswordHash, Role, Email, Personnummer, SecurityAnswer, ResetToken FROM Users";
+
     private readonly Db _db;
     private readonly ILogger<UserRepository> _logger;
 
@@ -18,8 +21,9 @@ public class UserRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Username, PasswordHash, Role, Email, Personnummer, SecurityAnswer, ResetToken FROM Users "
-            + "WHERE Username = '" + username + "' AND PasswordHash = '" + CryptoService.HashPassword(password) + "'";
+        command.CommandText = SelectColumns + " WHERE Username = $username AND PasswordHash = $passwordHash";
+        command.Parameters.AddWithValue("$username", username);
+        command.Parameters.AddWithValue("$passwordHash", CryptoService.HashPassword(password));
 
         var user = Read(command).FirstOrDefault();
 
@@ -35,15 +39,22 @@ public class UserRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Username, PasswordHash, Role, Email, Personnummer, SecurityAnswer, ResetToken FROM Users WHERE Username = '" + username + "'";
+        command.CommandText = SelectColumns + " WHERE Username = $username";
+        command.Parameters.AddWithValue("$username", username);
         return Read(command).FirstOrDefault();
     }
 
     public User? GetById(string id)
     {
+        if (!int.TryParse(id, out var userId))
+        {
+            return null;
+        }
+
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Username, PasswordHash, Role, Email, Personnummer, SecurityAnswer, ResetToken FROM Users WHERE Id = " + id;
+        command.CommandText = SelectColumns + " WHERE Id = $id";
+        command.Parameters.AddWithValue("$id", userId);
         return Read(command).FirstOrDefault();
     }
 
@@ -51,7 +62,7 @@ public class UserRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Username, PasswordHash, Role, Email, Personnummer, SecurityAnswer, ResetToken FROM Users ORDER BY Id";
+        command.CommandText = SelectColumns + " ORDER BY Id";
         return Read(command);
     }
 
@@ -59,7 +70,8 @@ public class UserRepository
     {
         using var connection = _db.Open();
         var lookup = connection.CreateCommand();
-        lookup.CommandText = "SELECT SecurityAnswer FROM Users WHERE Username = '" + username + "'";
+        lookup.CommandText = "SELECT SecurityAnswer FROM Users WHERE Username = $username";
+        lookup.Parameters.AddWithValue("$username", username);
         var stored = lookup.ExecuteScalar() as string;
 
         if (stored is null || !stored.Equals(securityAnswer, StringComparison.OrdinalIgnoreCase))
@@ -69,7 +81,9 @@ public class UserRepository
 
         var token = CryptoService.GenerateResetToken();
         var update = connection.CreateCommand();
-        update.CommandText = "UPDATE Users SET ResetToken = '" + token + "' WHERE Username = '" + username + "'";
+        update.CommandText = "UPDATE Users SET ResetToken = $token WHERE Username = $username";
+        update.Parameters.AddWithValue("$token", token);
+        update.Parameters.AddWithValue("$username", username);
         update.ExecuteNonQuery();
 
         return token;
@@ -79,24 +93,38 @@ public class UserRepository
     {
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "UPDATE Users SET PasswordHash = '" + CryptoService.HashPassword(newPassword)
-            + "', ResetToken = NULL WHERE ResetToken = '" + token + "'";
+        command.CommandText = "UPDATE Users SET PasswordHash = $passwordHash, ResetToken = NULL WHERE ResetToken = $token";
+        command.Parameters.AddWithValue("$passwordHash", CryptoService.HashPassword(newPassword));
+        command.Parameters.AddWithValue("$token", token);
         return command.ExecuteNonQuery() > 0;
     }
 
     public void SetRole(string userId, string role)
     {
+        if (!int.TryParse(userId, out var id))
+        {
+            return;
+        }
+
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "UPDATE Users SET Role = '" + role + "' WHERE Id = " + userId;
+        command.CommandText = "UPDATE Users SET Role = $role WHERE Id = $id";
+        command.Parameters.AddWithValue("$role", role);
+        command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
     }
 
     public void Delete(string userId)
     {
+        if (!int.TryParse(userId, out var id))
+        {
+            return;
+        }
+
         using var connection = _db.Open();
         var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Users WHERE Id = " + userId;
+        command.CommandText = "DELETE FROM Users WHERE Id = $id";
+        command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
     }
 
