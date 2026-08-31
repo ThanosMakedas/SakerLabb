@@ -32,13 +32,6 @@ app.Services.GetRequiredService<Db>().Initialize();
 app.UseDeveloperExceptionPage();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
-app.Use(async (context, next) =>
-{
-    context.Response.Headers["X-Powered-By"] = "SakerLabb 1.4.2 (ASP.NET Core 10.0)";
-    context.Response.Headers["X-Backend-Node"] = Environment.MachineName;
-    await next();
-});
-
 app.UseCors();
 
 app.UseStaticFiles();
