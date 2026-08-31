@@ -29,15 +29,38 @@ var app = builder.Build();
 
 app.Services.GetRequiredService<Db>().Initialize();
 
-app.UseDeveloperExceptionPage();
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-
+// Sakerhetsheaders. Satts i OnStarting sa att de kommer med aven pa
+// felsidor, dar svaret annars nollstalls och headers forsvinner.
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-Powered-By"] = "SakerLabb 1.4.2 (ASP.NET Core 10.0)";
-    context.Response.Headers["X-Backend-Node"] = Environment.MachineName;
+    context.Response.OnStarting(() =>
+    {
+        var headers = context.Response.Headers;
+
+        headers["Content-Security-Policy"] =
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self'; " +
+            "img-src 'self' data:; " +
+            "font-src 'self'; " +
+            "connect-src 'self'; " +
+            "object-src 'none'; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'self'; " +
+            "form-action 'self'";
+
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+
+        return Task.CompletedTask;
+    });
+
     await next();
 });
+
+app.UseDeveloperExceptionPage();
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
 app.UseCors();
 
