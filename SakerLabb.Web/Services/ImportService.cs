@@ -1,4 +1,5 @@
-using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Text.RegularExpressions;
 using System.Xml;
 using Newtonsoft.Json;
 
@@ -6,6 +7,9 @@ namespace SakerLabb.Web.Services;
 
 public class ImportService
 {
+    private static readonly Regex HostPattern =
+        new(@"^[a-zA-Z0-9]([a-zA-Z0-9\-.]{0,253}[a-zA-Z0-9])?$", RegexOptions.Compiled);
+
     private readonly ILogger<ImportService> _logger;
     private readonly HttpClient _http;
 
@@ -49,21 +53,27 @@ public class ImportService
 
     public string Ping(string host)
     {
-        var process = new Process
+        if (string.IsNullOrWhiteSpace(host) || !HostPattern.IsMatch(host))
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = "cmd.exe",
-                Arguments = "/c ping -n 2 " + host,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
+            _logger.LogWarning("Diagnostik nekad, ogiltigt värdnamn angivet.");
+            return "Ogiltigt värdnamn. Endast bokstäver, siffror, punkt och bindestreck är tillåtna.";
+        }
 
-        process.Start();
-        var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit(5000);
-        return output;
+        try
+        {
+            using var ping = new System.Net.NetworkInformation.Ping();
+            var reply = ping.Send(host, 2000);
+
+            if (reply.Status == IPStatus.Success)
+            {
+                return $"Svar från {reply.Address}: tid={reply.RoundtripTime} ms";
+            }
+
+            return $"Inget svar från {host}: {reply.Status}";
+        }
+        catch (PingException)
+        {
+            return $"Kunde inte nå {host}.";
+        }
     }
 }
