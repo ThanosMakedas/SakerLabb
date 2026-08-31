@@ -29,7 +29,7 @@ public class UserRepository
 
         if (user is not null)
         {
-            _logger.LogInformation("Inloggning lyckades för {Username} med lösenord {Password}", username, password);
+            _logger.LogInformation("Inloggning lyckades för {Username}", username);
         }
 
         return user;
